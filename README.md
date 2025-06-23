@@ -161,3 +161,116 @@ def test_etl_pipeline_end_to_end(tmp_path, dummy_data):
     df_loaded = pd.read_csv(output_file)
     assert df_loaded.shape == (3, 3)
 python -m etl_pipeline
+# insight_generator.py
+
+"""
+Generates insights from the social advertisement dataset.
+"""
+
+import pandas as pd
+import logging
+import matplotlib.pyplot as plt
+import seaborn as sns
+from typing import Optional
+
+# Configure logger
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s: %(message)s"
+)
+logger = logging.getLogger("InsightGenerator")
+
+
+class InsightGenerator:
+    """
+    Analyze social ads dataset and generate meaningful insights.
+    """
+
+    def __init__(self, csv_path: str, visualize: bool = True):
+        """
+        Initialize the insight generator.
+        
+        Args:
+            csv_path (str): Path to the CSV dataset.
+            visualize (bool): Whether to show visual plots.
+        """
+        self.csv_path = csv_path
+        self.visualize = visualize
+        self.df: Optional[pd.DataFrame] = None
+
+    def load_data(self):
+        """
+        Load and validate dataset.
+        """
+        try:
+            self.df = pd.read_csv(self.csv_path)
+            logger.info(f"Loaded dataset with {self.df.shape[0]} rows and {self.df.shape[1]} columns.")
+        except Exception as e:
+            logger.exception("Failed to load dataset.")
+            raise
+
+    def basic_statistics(self):
+        """
+        Display basic statistics and missing value analysis.
+        """
+        logger.info("Data Types:\n%s", self.df.dtypes)
+        logger.info("Missing Values:\n%s", self.df.isnull().sum())
+        logger.info("Statistical Summary:\n%s", self.df.describe())
+
+    def target_distribution(self):
+        """
+        Analyze the distribution of the 'Purchased' target.
+        """
+        counts = self.df["Purchased"].value_counts()
+        percents = self.df["Purchased"].value_counts(normalize=True) * 100
+        logger.info("Purchase Distribution:\n%s", pd.concat([counts, percents], axis=1, keys=["Count", "Percentage"]))
+
+        if self.visualize:
+            sns.countplot(x="Purchased", data=self.df)
+            plt.title("Purchase Decision Distribution")
+            plt.xlabel("Purchased (0 = No, 1 = Yes)")
+            plt.ylabel("Count")
+            plt.tight_layout()
+            plt.show()
+
+    def feature_correlations(self):
+        """
+        Check how features relate to purchase decisions.
+        """
+        logger.info("Correlation Matrix:\n%s", self.df.corr(numeric_only=True))
+
+        if self.visualize:
+            sns.pairplot(self.df, hue="Purchased")
+            plt.suptitle("Feature Distributions by Purchase Decision", y=1.02)
+            plt.tight_layout()
+            plt.show()
+
+    def age_salary_analysis(self):
+        """
+        Analyze age and salary against the purchase outcome.
+        """
+        logger.info("Average Age and Salary for Each Purchase Class:\n%s", 
+                    self.df.groupby("Purchased")[["Age", "EstimatedSalary"]].mean())
+
+        if self.visualize:
+            plt.figure(figsize=(10, 6))
+            sns.scatterplot(data=self.df, x="Age", y="EstimatedSalary", hue="Purchased", palette="Set1")
+            plt.title("Age vs EstimatedSalary Colored by Purchase")
+            plt.tight_layout()
+            plt.show()
+
+    def run_all(self):
+        """
+        Run the entire insight generation pipeline.
+        """
+        self.load_data()
+        self.basic_statistics()
+        self.target_distribution()
+        self.feature_correlations()
+        self.age_salary_analysis()
+
+
+if __name__ == "__main__":
+    csv_file = "social_ads.csv"  # Replace with your full path if needed
+    ig = InsightGenerator(csv_file, visualize=True)
+    ig.run_all()
